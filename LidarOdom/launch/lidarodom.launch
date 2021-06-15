@@ -1,0 +1,53 @@
+<launch>
+    <param name="/use_sim_time" value="true" />
+    <arg name="bag_filename" default="/home/wgh/aaa_bags/2021-04-27-B1-02-crossElevator.bag" />
+
+    <!-- ros wrapper options -->
+    <arg name="imu_topic" default = "/imu/data" />
+    <arg name="pointcloud_topic" default = "/velodyne_points" />
+    <arg name="imu_queue_duration" default = "5.0" />
+    <arg name="pointcloud_queue_duration" default = "15.0" />
+    <arg name="x_offset" default = "0.0" />
+    <arg name="y_offset" default = "0.0" />
+    <arg name="z_offset" default = "0.0" />
+    <arg name="roll_offset" default = "0.0" />
+    <arg name="pitch_offset" default = "0.0" />
+    <arg name="yaw_offset" default = "0.0" />
+    <!-- LidarOdomOptions -->
+    <arg name="max_imu_interval" default = "0.5" />
+    <arg name="imu_gravity_constant" default = "9.806" />
+    <arg name="imu_gravity_time_constant" default = "10.0" />
+    <!-- <arg name="" default = "" /> -->
+    <arg name="which_odom" default = "1" />
+    <!-- <arg name="" default = "" /> -->
+
+
+    <node pkg="lidar_odom" type="lidar_odom_node" name="lidar_odom_node" output="screen">
+        <param name="imu_topic" type="string" value="$(arg imu_topic)"/>
+        <param name="pointcloud_topic" type="string" value="$(arg pointcloud_topic)"/>
+        <param name="imu_queue_duration" type="double" value="$(arg imu_queue_duration)"/>
+        <param name="pointcloud_queue_duration" type="double" value="$(arg pointcloud_queue_duration)"/>
+        <param name="x_offset" type="double" value="$(arg x_offset)"/>
+        <param name="y_offset" type="double" value="$(arg y_offset)"/>
+        <param name="z_offset" type="double" value="$(arg z_offset)"/>
+        <param name="roll_offset" type="double" value="$(arg roll_offset)"/>
+        <param name="pitch_offset" type="double" value="$(arg pitch_offset)"/>
+        <param name="yaw_offset" type="double" value="$(arg yaw_offset)"/>
+        <param name="max_imu_interval" type="double" value="$(arg max_imu_interval)"/>
+        <param name="imu_gravity_constant" type="double" value="$(arg imu_gravity_constant)"/>
+        <param name="imu_gravity_time_constant" type="double" value="$(arg imu_gravity_time_constant)"/>
+    </node>
+
+
+    <!-- <include file = "$(find velodyne_driver)/launch/##.launch" >
+        <arg name="" default = "" />
+        <arg name="" default = "" />
+        <arg name="" default = "" />
+    </include> -->
+
+    <!-- <node name="rviz" pkg="rviz" type="rviz" required="false"
+        args="-d $(find lidar_odom)/rviz/lidar_odom.rviz" /> -->
+    <node name="playbag" pkg="rosbag" type="play"
+        args="--clock $(arg bag_filename)" />
+
+</launch>
