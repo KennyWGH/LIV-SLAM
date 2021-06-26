@@ -21,9 +21,13 @@
 #include<mutex>
 #include<condition_variable>
 #include<cmath>
+// PCL
+#include<pcl/point_cloud.h>
+#include<pcl/point_types.h>
+#include<pcl_conversions/pcl_conversions.h>
 // 自定义工程
 #include"Options.h"
-#include"time.h"
+#include"liv_time.h"
 #include"liv_utils.h"
 #include"LidarOdom.h"
 
@@ -35,6 +39,9 @@ class LidarOdomWrapper{
     LidarOdomWrapper(const LidarOdomWrapper&) = delete;
     LidarOdomWrapper& operator=(const LidarOdomWrapper&) = delete;
 
+
+    // 作用：将数据放入队列，调用下发函数。
+    // 要求：imu回调和pointcloud回调必须在同一个线程执行，不能并发。
     void addImu(const sensor_msgs::ImuConstPtr& msg);
     void addPointcloud(const sensor_msgs::PointCloud2ConstPtr& msg);
 
@@ -68,6 +75,7 @@ class LidarOdomWrapper{
     std::queue<sensor_msgs::PointCloud2ConstPtr> pointcloud_queue_;
 
     // others
+    LidarOdom lidar_odom_;
     FixedRatioSampler imu_warn_sampler;
     bool isInitialized = false;
 };

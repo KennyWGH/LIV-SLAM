@@ -9,10 +9,17 @@
 #define LIDAR_ODOM_H_
 
 // C++, third party
-#include<iostream>
+#include<string>
+#include<vector>
+// PCL
+#include<pcl/point_cloud.h>
+#include<pcl/point_types.h>
 // 自定义工程
 #include"Options.h"
-#include"time.h"
+#include"liv_time.h"
+#include"liv_utils.h"
+
+using namespace std;
 
 class LidarOdom{
   public:
@@ -22,8 +29,8 @@ class LidarOdom{
     LidarOdom(const LidarOdom&) = delete;
     LidarOdom& operator=(const LidarOdom&) = delete;
 
-    void addImu();
-    void addPointcloud();
+    void addImu(ImuData& source_imu);
+    void addPointcloud(pcl::PointCloud<pcl::PointXYZ>& source_cloud);
 
   private:
     enum WhichMethod {

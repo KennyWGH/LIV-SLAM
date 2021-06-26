@@ -41,6 +41,12 @@ endif()
 ###################################
 ## catkin specific configuration ##
 ###################################
+# wgh-- 当作者发布了自己的catkin包，供别人调用时，作者必须设置好
+# wgh-- 自己的头文件，库文件，以及自己依赖的其他catkin包或系统依赖项。
+# wgh-- catkin_package()正是服务于这个目的的。
+# wgh-- 第1、2行制定了所发布包的头文件和库文件；
+# wgh-- 第3行指定了所发布包依赖的其它catkin包；
+# wgh-- 第4行指定了所发布包依赖的其它操作系统中的依赖项。
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES lidar_odom

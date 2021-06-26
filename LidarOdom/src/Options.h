@@ -14,9 +14,9 @@
 
 struct LidarOdomOptions
 {
-    /* LiDAR params */
-    // double max_range;
-    // double min_range;
+    /* LiDAR data params */
+    double max_range = 60.0;
+    double min_range = 0.4;
     /* ImuTracker */
     double max_imu_interval = 0.5;              /* 允许的最大imu数据间隔，超过则报警 */
     double imu_gravity_constant = 9.806;        /* 重力常量 */
@@ -24,7 +24,10 @@ struct LidarOdomOptions
     /* ImuTracker: Cubic Spline Interpolation */
     //
     /* Dynamic obj filter */
+    bool use_DynObjFilter = false;
     //
+    /* motion distortion */
+    bool use_pointcloud_deskew = false;
 };
 
 struct Options

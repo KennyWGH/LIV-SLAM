@@ -31,23 +31,40 @@
   <!-- The *depend tags are used to specify dependencies -->
   <!-- Dependencies can be catkin packages or system dependencies -->
   <!-- Examples: -->
+
+  <!-- #### 以下各个depends用于指定依赖项，依赖项可以是catkin包，也可以是系统依赖项 -->
+  
+  <!-- #### depend，相当于build和exec的和 -->
   <!-- Use depend as a shortcut for packages that are both build and exec dependencies -->
   <!--   <depend>roscpp</depend> -->
   <!--   Note that this is equivalent to the following: -->
   <!--   <build_depend>roscpp</build_depend> -->
   <!--   <exec_depend>roscpp</exec_depend> -->
+
+  <!-- #### 编译时需要依赖的包 -->
   <!-- Use build_depend for packages you need at compile time: -->
   <!--   <build_depend>message_generation</build_depend> -->
+
+  <!-- #### 对生成时需要依赖的包使用此方式。所谓生成，是打包发布出去，让别人可以用？ -->
   <!-- Use build_export_depend for packages you need in order to build against this package: -->
   <!--   <build_export_depend>message_generation</build_export_depend> -->
+
+  <!-- #### 用的什么构建工具 -->
   <!-- Use buildtool_depend for build tool packages: -->
   <!--   <buildtool_depend>catkin</buildtool_depend> -->
+
+  <!-- #### 运行时需要依赖的包 -->
   <!-- Use exec_depend for packages you need at runtime: -->
   <!--   <exec_depend>message_runtime</exec_depend> -->
+
+  <!-- #### 只在测试时才需要的包 -->
   <!-- Use test_depend for packages you need only for testing: -->
   <!--   <test_depend>gtest</test_depend> -->
+
+  <!-- #### 构建文档时才需要的包 -->
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
+
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>sensor_msgs</build_depend>
@@ -58,6 +75,9 @@
   <exec_depend>roscpp</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
+
+  <depend>geometry_msgs</depend>
+  <depend>pcl_conversions</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
