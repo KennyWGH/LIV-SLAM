@@ -19,6 +19,11 @@ struct ImuData {
     common::Time time = common::Time::min();
     Eigen::Vector3d linear_acceleration = Eigen::Vector3d::Zero();
     Eigen::Vector3d angular_velocity = Eigen::Vector3d::Zero();
+
+    explicit ImuData(common::Time time_, Eigen::Vector3d accel_, 
+                    Eigen::Vector3d angular_)
+        :time(time_), linear_acceleration(accel_), 
+                    angular_velocity(angular_) {}
 };
 
 struct TimedPose {

@@ -9,7 +9,7 @@
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "node_a");
+    ros::init(argc, argv, "ImuTracker_test");
     ros::NodeHandle nh;
     ros::Rate loop_rate(1);
 

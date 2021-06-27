@@ -106,7 +106,7 @@ void LidarOdomWrapper::checkAndDispatch()
         sensor_msgs::ImuConstPtr ros_imu = imu_queue_.front();
         ROS_INFO_STREAM("Dispatch to core an IMU data. [" << ros_imu->header.stamp.sec
             << "." << ros_imu->header.stamp.nsec << "]");
-        ImuData imu_data{common::Time( common::FromSeconds(double(ros_imu->header.stamp.sec))+
+        ImuData imu_data {common::Time( common::FromSeconds(double(ros_imu->header.stamp.sec))+
                                         common::FromNanoseconds(ros_imu->header.stamp.nsec) ),
                         Eigen::Vector3d(ros_imu->linear_acceleration.x,
                                         ros_imu->linear_acceleration.y,

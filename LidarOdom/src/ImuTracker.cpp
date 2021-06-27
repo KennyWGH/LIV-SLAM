@@ -13,19 +13,15 @@
 
 
 
-ImuTracker::ImuTracker(const double imu_gravity_time_constant)
+ImuTracker::ImuTracker(double imu_gravity_time_constant)
     : imu_gravity_time_constant_(imu_gravity_time_constant),
       gravity_constant_(9.806),
-      num_imu_data_(0),
       processed_time_(common::Time::min()),
-      data_time_(common::Time::min()),
+      curr_time_(common::Time::min()),
       orientation_(Eigen::Quaterniond::Identity()),
       gravity_vector_(-Eigen::Vector3d::UnitZ()),
-      curr_angular_velocity_(Eigen::Vector3d::Zero()),
       last_angular_velocity_(Eigen::Vector3d::Zero()),
-      position_(Eigen::Vector3d::Zero()),
-      last_linear_accel_corrected_(Eigen::Vector3d::Zero()),
-      curr_linear_accel_corrected_(Eigen::Vector3d::Zero())
+      last_linear_accel_corrected_(Eigen::Vector3d::Zero())
 {
     std::cout << "ImuTracker initial position: " << position_.x() 
                 << " " << position_.y() << " " << position_.z() << std::endl;
@@ -35,16 +31,12 @@ ImuTracker::ImuTracker(const double imu_gravity_time_constant)
 ImuTracker::ImuTracker()
     : imu_gravity_time_constant_(10.0),
       gravity_constant_(9.806),
-      num_imu_data_(0),
       processed_time_(common::Time::min()),
-      data_time_(common::Time::min()),
+      curr_time_(common::Time::min()),
       orientation_(Eigen::Quaterniond::Identity()),
       gravity_vector_(-Eigen::Vector3d::UnitZ()),
-      curr_angular_velocity_(Eigen::Vector3d::Zero()),
       last_angular_velocity_(Eigen::Vector3d::Zero()),
-      position_(Eigen::Vector3d::Zero()),
-      last_linear_accel_corrected_(Eigen::Vector3d::Zero()),
-      curr_linear_accel_corrected_(Eigen::Vector3d::Zero())
+      last_linear_accel_corrected_(Eigen::Vector3d::Zero())
 {
     std::cout << "ImuTracker initial position: " << position_.x() 
                 << " " << position_.y() << " " << position_.z() << std::endl;
@@ -55,87 +47,83 @@ ImuTracker::~ImuTracker(){}
 
 void ImuTracker::addImu(ImuData imu_data)
 {
+    if (!validateData(imu_data)) {
+        cout << "Invalid imu data!" << endl;
+        return;
+    } num_imu_data_++;
+    
+    /* 如果是第一帧数据 */
     if (gravity_queue_.empty()){
-        imu_queue_.push_back(imu_data);
-        gravity_queue_.push_back(
-                TimedGravity(imu_data.time, imu_data.linear_acceleration));
-        // ort_queue_.push_back(
-        //         TimedPose(imu_data.time, Eigen::Quaterniond::Identity()));
+        imu_queue_.push(imu_data);
+        gravity_vector_ = imu_data.linear_acceleration;
+        const Eigen::Quaterniond rotation = Eigen::Quaterniond::FromTwoVectors(
+            -gravity_vector_, orientation_.conjugate() * Eigen::Vector3d::UnitZ());
+        orientation_ = (orientation_ * rotation).normalized();
+        gravity_queue_.push(TimedGravity(imu_data.time, gravity_vector_));
+        ort_queue_.push(TimedPose(imu_data.time, orientation_));
+        curr_time_ = imu_data.time;
+        processed_time_ = imu_data.time;
+        last_linear_accel_corrected_ = imu_data.linear_acceleration;
+        last_angular_velocity_ = imu_data.angular_velocity;
+        return;
+    }
+
+    if (imu_data.time<=processed_time_) {
+        cout << "WARNING: Input imu date older than processed data." << endl;
+        return;
+    }
+
+    /* 正常处理流程 */
+    {
+        curr_time_ = imu_data.time;
+        predictOrientation(imu_data.angular_velocity);
+        correctOrientationWithGravity(imu_data.linear_acceleration);
+        processed_time_ = curr_time_;
+        last_linear_accel_corrected_ = imu_data.linear_acceleration;
+        last_angular_velocity_ = imu_data.angular_velocity;
+        trimQueue();
         return;
     }
 }
 
-void ImuTracker::processWithGravity(const ImuData& imu_data){
+
+
+void ImuTracker::predictOrientation(const Eigen::Vector3d& angular_velocity) {
     // step#1
-    if(imu_data.time < processed_time_){
-        // 输出警告：时间戳回退，无效！
-        return;
+    const double delta_t = common::ToSeconds(curr_time_ - processed_time_);
+    if(delta_t > 0.5){
+        // 输出警告：时间差大于0.5s，可能造成误差过大。
     }
     // step#2
-    num_imu_data_++;
-    data_time_ = imu_data.time;
-    predictOrientation(imu_data.angular_velocity);
-    correctOrientationWithGravity(imu_data.linear_acceleration);
-    processed_time_ = data_time_;
+    const Eigen::Quaterniond rotation = AngleAxisVectorToRotationQuaternion(
+            Eigen::Vector3d((angular_velocity+last_angular_velocity_)/0.5*delta_t));
+    // step#3
+    orientation_ = (orientation_ * rotation).normalized();
+    // step#4
+    gravity_vector_ = rotation.conjugate() * gravity_vector_;
     return;
 }
 
 
 
-bool ImuTracker::predictOrientation(const Eigen::Vector3d& imu_angular_velocity) {
+void ImuTracker::correctOrientationWithGravity(const Eigen::Vector3d& linear_accel) {
     // step#1 
-    const double delta_t =
-        processed_time_ > common::Time::min()
-            ? common::ToSeconds(data_time_ - processed_time_)
-            : 0.0;
-    if(delta_t > 0.5){
-        // 输出警告：时间差大于0.5s，可能造成误差过大。
-    }
-
-    // consider：角速度积分是否需要中值积分？？？？ #####################################
-
-    // step#2 角速度积分
-    const Eigen::Quaterniond rotation = AngleAxisVectorToRotationQuaternion(
-            Eigen::Vector3d(imu_angular_velocity * delta_t));
-    // step#3 预测新时刻的orientation_
-    orientation_ = (orientation_ * rotation).normalized();
-    // step#4 更新重力方向（当前帧imu坐标系下、预测值）
-    gravity_vector_ = rotation.conjugate() * gravity_vector_;
-    return true;
-}
-
-
-
-bool ImuTracker::correctOrientationWithGravity(const Eigen::Vector3d& imu_linear_acceleration) {
-    // step#1 
-    const double delta_t =
-        processed_time_ > common::Time::min()
-            ? common::ToSeconds(data_time_ - processed_time_)
-            : std::numeric_limits<double>::infinity();
+    const double delta_t = common::ToSeconds(curr_time_ - processed_time_);
 
     // step#2 对新时刻的重力方向测量进行滤波，起到平滑作用
     const double alpha = 1. - std::exp(-delta_t / imu_gravity_time_constant_);
     gravity_vector_ =
-        (1. - alpha) * gravity_vector_ + alpha * imu_linear_acceleration;
-    // step#3 根据新的重力方向，矫正orientation_
+        (1. - alpha) * gravity_vector_ + alpha * linear_accel;
+    // step#3 根据重力方向，矫正orientation_
     const Eigen::Quaterniond rotation = Eigen::Quaterniond::FromTwoVectors(
         -gravity_vector_, orientation_.conjugate() * Eigen::Vector3d::UnitZ());
     orientation_ = (orientation_ * rotation).normalized();
 
     // step#4 TODO: 对线加速度“伪积分”，计算位移
-    // position_.x() = position_.x() + imu_linear_acceleration.x() * delta_t;
-    // position_.y() = position_.y() + imu_linear_acceleration.y() * delta_t;
+    // position_.x() = position_.x() + linear_accel.x() * delta_t;
+    // position_.y() = position_.y() + linear_accel.y() * delta_t;
 
-    // step#5 校验结果？
-    // CHECK_GT((orientation_ * gravity_vector_).z(), 0.);
-    // CHECK_GT((orientation_ * gravity_vector_).normalized().z(), 0.99);
-    if( !(  (orientation_ * gravity_vector_).z()>0.0 
-            && (orientation_ * gravity_vector_).normalized().z()>0.99 ) ){
-        // 输出警告：结果可能错误。
-        std::cout << "orientation_ CHECK wrong~" << std::endl ;
-        return false;
-    }
-    return true;
+    return;
 }
 
 
@@ -157,14 +145,27 @@ Eigen::Quaterniond ImuTracker::AngleAxisVectorToRotationQuaternion(
 }
 
 
+void ImuTracker::trimQueue()
+{
+    if (common::ToSeconds(common::Duration(
+            imu_queue_.back().time-imu_queue_.front().time))>q_duration_)
+    imu_queue_.pop();
+    if (common::ToSeconds(common::Duration(
+            ort_queue_.back().time-ort_queue_.front().time))>q_duration_)
+    ort_queue_.pop();
+    if (common::ToSeconds(common::Duration(
+            gravity_queue_.back().time-gravity_queue_.front().time))>q_duration_)
+    gravity_queue_.pop();
+}
 
 
+// ############################################################################
 // Eigen::Quaterniond ImuTracker::FromTwoVectors(const Eigen::Vector3d& a,
 //                                   const Eigen::Vector3d& b) {
 //   return Eigen::Quaterniond::FromTwoVectors(a, b);
 // }
-
-  // euler_angle_ = orientation_.normalized().toRotationMatrix().eulerAngles(2,1,0)/M_PI*180.0;
-  // LOG(WARNING)<<"wgh--#### orientation_ after  gravity alignment: "
-  //   << euler_angle_[0] << " " << euler_angle_[1] << " " << euler_angle_[2];
-  // LOG(WARNING)<< "";
+// euler_angle_ = orientation_.normalized().toRotationMatrix().eulerAngles(2,1,0)/M_PI*180.0;
+// LOG(WARNING)<<"wgh--#### orientation_ after  gravity alignment: "
+//   << euler_angle_[0] << " " << euler_angle_[1] << " " << euler_angle_[2];
+// LOG(WARNING)<< "";
+// ############################################################################

@@ -53,6 +53,9 @@ std::ostream& operator<<(std::ostream& os, Time time);
 inline double ToSeconds(Duration duration){
     return std::chrono::duration_cast<std::chrono::duration<double>>(duration)
         .count();}
+// inline double ToSeconds(Time time){
+//     return std::chrono::duration_cast<std::chrono::duration<double>>()
+//         .count();}
 // inline double ToSeconds(std::chrono::steady_clock::duration duration){
 //     return std::chrono::duration_cast<std::chrono::duration<double>>(duration)
 //         .count();}

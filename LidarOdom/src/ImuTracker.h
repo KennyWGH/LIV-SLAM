@@ -1,4 +1,5 @@
 /**
+ * @warning: 所使用的imu必须是右手系类型！！
  * @author: wgh--
  * @description: 追踪imu坐标系的姿态角，通过角速度积分做预测，再用重力方向做矫正。
  * @dependencies: C++, Eigen, C++11::std::chrono, C++11::std::ratio
@@ -11,6 +12,7 @@
 
 // C++
 #include<vector>
+#include<queue>
 #include<string>
 // Eigen
 //
@@ -18,8 +20,7 @@
 #include"liv_time.h"
 #include"liv_utils.h"
 
-
-
+using namespace std;
 
 
 // wgh-- 解释：假设机器人缓慢移动，则整体来看，加速度测量的均值就是重力加速度。
@@ -32,19 +33,13 @@
 class ImuTracker {
 
   public:
-    explicit ImuTracker(double imu_gravity_time_constant = 10.0);
+    explicit ImuTracker(double imu_gravity_time_constant);
     ImuTracker();
     ~ImuTracker();
 
-    // Interface functions
-    void addImu(ImuData imu_data);
-    void processWithGravity(const ImuData& imu_data);
-    void process(const ImuData& imu_data);
-
-    void advanceWithGravity(const ImuData& imu_data);
-    void advance(const ImuData& imu_data);
-
     // Interfaces
+    void addImu(ImuData imu_data);
+
     Eigen::Matrix3d getGravity();
     Eigen::Matrix3d getDeltaOrientation();
 
@@ -55,35 +50,45 @@ class ImuTracker {
 
 
   private:
-    // wgh-- 用imu的角速度值做积分，预测新时刻的姿态角(世界坐标系)以及重力方向(imu坐标系)
-    // wgh-- 用imu的加速度值得到重力方向观测，用重力方向矫正姿态角
-    inline bool predictOrientation(const Eigen::Vector3d& imu_angular_velocity);
-    inline bool correctOrientationWithGravity(const Eigen::Vector3d& imu_linear_acceleration);
+    // wgh-- 用imu的角速度值做积分，预测新时刻的姿态(世界坐标系)以及重力方向(imu坐标系)
+    // wgh-- 用imu的重力方向观测(线加速度)，来矫正姿态预测
+    inline void predictOrientation(const Eigen::Vector3d& angular_velocity);
+    inline void correctOrientationWithGravity(const Eigen::Vector3d& linear_accel);
+
     // Returns a quaternion representing the same rotation as the given 'angle_axis' vector.
     inline Eigen::Quaterniond AngleAxisVectorToRotationQuaternion(const Eigen::Matrix<double, 3, 1>& angle_axis);
-    // inline Eigen::Quaterniond FromTwoVectors(const Eigen::Vector3d& a, const Eigen::Vector3d& b);
+
+    inline void trimQueue();
+
+    inline bool validateData(const ImuData& input_data){
+        if (input_data.time==common::Time::min()
+            || input_data.linear_acceleration==Eigen::Vector3d::Zero()
+            || input_data.angular_velocity==Eigen::Vector3d::Zero()) {
+                return false;
+        } return true;
+    }
 
 
+    // containers
+    std::queue<ImuData> imu_queue_;              // wgh-- queue for unprocessed imu data
+    std::queue<TimedPose> ort_queue_;
+    std::queue<TimedGravity> gravity_queue_;
+    double q_duration_ = 5.0;
     // static parameters
     const double imu_gravity_time_constant_;      // wgh-- 一阶低通滤波参数，平滑更新gravity_vector_
     const double gravity_constant_;
-    // run-time parameters
-    size_t num_imu_data_;                          // wgh-- imu data帧计数
-    common::Time processed_time_;                 // wgh-- 当前最新已处理数据的时间
-    common::Time data_time_;                      // wgh-- 实时传入的数据的时间戳
-    // containers
-    std::vector<ImuData> imu_queue_;              // wgh-- queue for unprocessed imu data
-    std::vector<TimedPose> ort_queue_;
-    std::vector<TimedGravity> gravity_queue_;
-    // calculate orientation.
-    Eigen::Quaterniond orientation_;              // wgh-- 核心变量！一切为这个变量服务
-    Eigen::Vector3d gravity_vector_;              // wgh-- 根据传感器数据实时更新
-    Eigen::Vector3d curr_angular_velocity_;        // wgh-- 当前帧imu角速度
-    Eigen::Vector3d last_angular_velocity_;        // wgh-- 当前帧imu角速度
-    // 加速度->速度->位置积分
-    Eigen::Vector3d position_;                    // wgh-- 根据传感器数据实时更新
+    // calculation variables
+    Eigen::Quaterniond orientation_;              // wgh-- 核心变量！
+    Eigen::Vector3d gravity_vector_;              // wgh-- 核心变量！
+    Eigen::Vector3d last_angular_velocity_; 
     Eigen::Vector3d last_linear_accel_corrected_;
-    Eigen::Vector3d curr_linear_accel_corrected_;
+    // run-time variables
+    size_t num_imu_data_ = 0;                          // wgh-- imu data帧计数
+    common::Time processed_time_;                 // wgh-- 当前最新已处理数据的时间
+    common::Time curr_time_;                      // wgh-- 实时传入的数据的时间戳
+    // 加速度->速度->位置积分（中值积分法）
+    bool extrapolate_position_ = false;
+    Eigen::Vector3d position_ = Eigen::Vector3d::Zero();                    // wgh-- 根据传感器数据实时更新
 };
 
 
