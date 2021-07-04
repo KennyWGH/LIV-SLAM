@@ -6,6 +6,8 @@
 
 // ROS
 #include<pcl_conversions/pcl_conversions.h>
+// OpenCV
+#include<opencv/cv.hpp>
 // 自定义工程
 #include"LidarOdomWrapper.h"
 
@@ -14,8 +16,12 @@ LidarOdomWrapper::LidarOdomWrapper(ros::NodeHandle& nh, Options& options)
     :nh_(nh), options_(options), lidar_odom_(options.lidar_odom_options), imu_warn_sampler(0.01)
 {
     // 订阅话题
-    imu_sub = nh_.subscribe(options_.imu_topic, 1000, &LidarOdomWrapper::addImu, this);
-    pointcloud_sub = nh_.subscribe(options_.pointcloud_topic, 100, &LidarOdomWrapper::addPointcloud, this);
+    subImu = nh_.subscribe(options_.imu_topic, 1000, &LidarOdomWrapper::addImu, this);
+    subPointcloud = nh_.subscribe(options_.pointcloud_topic, 100, &LidarOdomWrapper::addPointcloud, this);
+    pubRangeImg = nh_.advertise<sensor_msgs::Image>("range_img", 1);
+    pubTempCloud = nh_.advertise<sensor_msgs::PointCloud2>("temp_cloud", 1);
+    // 其它
+    show_cvImg_sampler.setRatio(0.1);
 }
 
 
@@ -95,17 +101,18 @@ void LidarOdomWrapper::checkAndDispatch()
             std::size_t num = imu_queue_.size() + pointcloud_queue_.size();
             ROS_INFO_STREAM("Data queue initialized! Remaining queue size: " 
                 << imu_queue_.size() << " + " << pointcloud_queue_.size() << " = " << num);
-            ROS_INFO_STREAM("Dispatch to core an IMU data.        -- [" 
+            ROS_INFO_STREAM("Dispatch to core the first IMU data.        -- [" 
                 << front_imu->header.stamp.sec << "." << front_imu->header.stamp.nsec << "]");
-            // return; /* this can be removed, so we can dispatch one imu and one pc2, instead of just one imu. */
+            /* `return` can be removed, so we can dispatch one imu and one pc2, instead of just one imu. */
+            // return; 
         }
     }
     // 数据队列已初始化成功，正常按时间顺序下发数据
     if(imu_queue_.front()->header.stamp.toSec()<pointcloud_queue_.front()->header.stamp.toSec())
     {
         sensor_msgs::ImuConstPtr ros_imu = imu_queue_.front();
-        ROS_INFO_STREAM("Dispatch to core an IMU data. [" << ros_imu->header.stamp.sec
-            << "." << ros_imu->header.stamp.nsec << "]");
+        // ROS_INFO_STREAM("Dispatch to core an IMU data. [" << ros_imu->header.stamp.sec
+        //     << "." << ros_imu->header.stamp.nsec << "]");
         ImuData imu_data {common::Time( common::FromSeconds(double(ros_imu->header.stamp.sec))+
                                         common::FromNanoseconds(ros_imu->header.stamp.nsec) ),
                         Eigen::Vector3d(ros_imu->linear_acceleration.x,
@@ -125,6 +132,32 @@ void LidarOdomWrapper::checkAndDispatch()
     pcl::fromROSMsg(*ros_pc2, pcl_cloud);
     lidar_odom_.addPointcloud(pcl_cloud);
     pointcloud_queue_.pop();
+
+    /* 在RVIZ可视化深度图 */
+    {
+        cv::Mat img_shown;
+        cv::resize(lidar_odom_.getCurRangeImg(),img_shown, cv::Size(180, 16));
+        double temp_intensity_sum=0;
+        /* 把range*2,这样100米对应最大像素值200<255，则最远可显示127.5米的距离 */
+        /* 把range*10,这样25.5米对应最大像素值255，则最远可显示25.5米的距离 */
+        /* 把range*20,这样12.75米对应最大像素值255，则最远可显示12.75米的距离 */
+        for (int i=0; i<img_shown.rows; i++) {
+            for (int j=0; j<img_shown.cols; j++) {
+                temp_intensity_sum+=img_shown.at<float>(i,j);
+                img_shown.at<float>(i,j)=img_shown.at<float>(i,j)*10;
+            }
+        }
+        double temp_intensity_avg = temp_intensity_sum/(img_shown.rows*img_shown.cols);
+        ROS_INFO_STREAM("average depth from intensity is: " << temp_intensity_avg);
+        img_shown.convertTo(img_shown, CV_8UC1); //COLOR_GRAY2BGR 
+        cv::applyColorMap(img_shown, img_shown, cv::COLORMAP_RAINBOW);
+        cv::flip(img_shown, img_shown, 0);
+        sensor_msgs::ImagePtr img_msg = 
+            cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_shown).toImageMsg();
+            // cv_bridge::CvImage(std_msgs::Header(), "mono8", img_shown).toImageMsg();
+        pubRangeImg.publish(*img_msg);
+    }
+
     return;
 }
 

@@ -15,11 +15,14 @@
 // PCL
 #include<pcl/point_cloud.h>
 #include<pcl/point_types.h>
+// OpenCV
+#include<opencv/cv.hpp>
 // 自定义工程
-#include"Options.h"
+#include"liv_Options.h"
 #include"liv_time.h"
 #include"liv_utils.h"
 #include"ImuTracker.h"
+#include"FeatureExtractor.h"
 
 using namespace std;
 
@@ -31,8 +34,10 @@ class LidarOdom{
     LidarOdom(const LidarOdom&) = delete;
     LidarOdom& operator=(const LidarOdom&) = delete;
 
-    void addImu(ImuData& source_imu);
-    void addPointcloud(pcl::PointCloud<pcl::PointXYZ>& source_cloud);
+    void addImu(const ImuData& source_imu);
+    void addPointcloud(const pcl::PointCloud<pcl::PointXYZ>& source_cloud);
+
+    const cv::Mat getCurRangeImg(){return cur_range_img;}
 
   private:
 
@@ -51,8 +56,11 @@ class LidarOdom{
     LidarOdomOptions lo_options_;
     WhichMethod which_method = NDT;
     ImuTracker imu_tracker_;
+    FeatureExtractor f_extractor_;
     // containers
     std::queue<pcl::PointCloud<pcl::PointXYZ>::Ptr> map_queue_;
+    // run time variables
+    cv::Mat cur_range_img;
 };
 
 #endif // LIDAR_ODOM_H_

@@ -13,6 +13,7 @@
 #include<sensor_msgs/Imu.h>
 #include<sensor_msgs/PointCloud2.h>
 #include<pcl_conversions/pcl_conversions.h>
+#include<cv_bridge/cv_bridge.h>
 // C++
 #include<vector>
 #include<queue>
@@ -26,7 +27,7 @@
 #include<pcl/point_types.h>
 #include<pcl_conversions/pcl_conversions.h>
 // 自定义工程
-#include"Options.h"
+#include"liv_Options.h"
 #include"liv_time.h"
 #include"liv_utils.h"
 #include"LidarOdom.h"
@@ -65,10 +66,12 @@ class LidarOdomWrapper{
     //
     Options options_;
     ros::NodeHandle& nh_;
-    ros::Subscriber imu_sub;
-    ros::Subscriber pointcloud_sub;
+    ros::Subscriber subImu;
+    ros::Subscriber subPointcloud;
     // ros::Publisher features_pub;
     // ros::Publisher odom_pub;
+    ros::Publisher pubRangeImg;
+    ros::Publisher pubTempCloud;
 
     // data queue
     std::queue<sensor_msgs::ImuConstPtr> imu_queue_;
@@ -78,6 +81,7 @@ class LidarOdomWrapper{
     LidarOdom lidar_odom_;
     FixedRatioSampler imu_warn_sampler;
     bool isInitialized = false;
+    FixedRatioSampler show_cvImg_sampler;
 };
 
 

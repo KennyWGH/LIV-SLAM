@@ -12,6 +12,11 @@
 #include<iostream>
 #include<Eigen/Core>
 
+struct FeatureExtractorOptions
+{
+    //
+};
+
 struct LidarOdomOptions
 {
     /* LiDAR data params */

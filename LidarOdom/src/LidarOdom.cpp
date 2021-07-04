@@ -11,9 +11,16 @@
 // PCL
 #include<pcl/registration/ndt.h>
 #include<pcl/filters/approximate_voxel_grid.h>
+// OpenCV
+#include<opencv/cv.hpp>
 // 自定义
 #include"LidarOdom.h"
 #include"liv_time.h"
+
+void getCloudOrganized(pcl::PointCloud<pcl::PointXYZ>& input_cloud)
+{
+    //
+}
 
 
 LidarOdom::LidarOdom(LidarOdomOptions& lo_options)
@@ -27,12 +34,12 @@ LidarOdom::~LidarOdom()
     //
 }
 
-void LidarOdom::addImu(ImuData& source_imu)
+void LidarOdom::addImu(const ImuData& source_imu)
 {
     //
 }
 
-void LidarOdom::addPointcloud(pcl::PointCloud<pcl::PointXYZ>& source_cloud)
+void LidarOdom::addPointcloud(const pcl::PointCloud<pcl::PointXYZ>& source_cloud)
 {
     // cout << "Received a pointcloud. [" 
     // << common::GetSecFromMicro(source_cloud.header.stamp) << "."
@@ -42,6 +49,10 @@ void LidarOdom::addPointcloud(pcl::PointCloud<pcl::PointXYZ>& source_cloud)
     Eigen::AngleAxisf init_rotation (0.6931, Eigen::Vector3f::UnitZ ());
     Eigen::Translation3f init_translation (1.79387, 0.720047, 0);
     Eigen::Matrix4f init_guess = (init_translation * init_rotation).matrix ();
+
+    // 对点云进行organized
+    cur_range_img = cv::Mat::zeros(16, 1800, CV_32FC1); /* Mat必须初始化为0像素值！ */
+    f_extractor_.getRangeImage(source_cloud, cur_range_img);
 }
 
 

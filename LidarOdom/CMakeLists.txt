@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   pcl_conversions
+  cv_bridge
 )
 
 find_package(Boost REQUIRED COMPONENTS system filesystem thread iostreams chrono)
@@ -95,10 +96,10 @@ message(STATUS "wgh-------- ALL_LIBRARY_SRCS: " ${ALL_LIBRARY_SRCS})
 
 add_executable(${PROJECT_NAME}_node
     # src/LidarOdom_node.cpp
-    # src/Options.cpp
+    # src/liv_Options.cpp
     # src/LidarOdomWrapper.cpp
     # src/LidarOdom.cpp
-    # src/time.cpp
+    # src/liv_time.cpp
     # src/liv_utils.cpp
     # src/DynamicObjFilter.cpp
     ${ALL_EXECUTABLES}

@@ -20,6 +20,8 @@ FixedRatioSampler::FixedRatioSampler(double ratio)
         std::cout << "ERROR! ratio passed to FixedRatioSampler must be within [0,1]!" << std::endl;
 }
 
+FixedRatioSampler::FixedRatioSampler(){}
+
 FixedRatioSampler::~FixedRatioSampler(){}
 
 bool FixedRatioSampler::pulse()
@@ -36,4 +38,9 @@ bool FixedRatioSampler::pulse()
 double FixedRatioSampler::currentRatio()
 {
     return static_cast<double>(num_hits_)/num_pulses_;
+}
+
+void FixedRatioSampler::setRatio(double ratio)
+{
+    ratio_ = ratio;
 }

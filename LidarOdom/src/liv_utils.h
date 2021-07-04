@@ -9,6 +9,7 @@
 // C++
 #include<cmath>
 #include<ratio>
+#include<cstdint>
 // Eigen
 #include<Eigen/Core>
 #include<Eigen/Geometry>
@@ -45,6 +46,7 @@ struct TimedGravity {
 class FixedRatioSampler{
   public:
     explicit FixedRatioSampler(double ratio);
+    FixedRatioSampler();
     ~FixedRatioSampler();
 
     FixedRatioSampler(const FixedRatioSampler&) = delete;
@@ -52,9 +54,10 @@ class FixedRatioSampler{
 
     bool pulse();
     double currentRatio();
+    void setRatio(double ratio);
 
   private:
-    double ratio_;
+    double ratio_=0.1;
     std::uint64_t num_hits_ = 0;
     std::uint64_t num_pulses_ = 0;
 };
