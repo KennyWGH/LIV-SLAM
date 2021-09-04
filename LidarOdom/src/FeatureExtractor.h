@@ -14,13 +14,15 @@
 #include<pcl/point_cloud.h>
 #include<pcl/point_types.h>
 
+#include"liv_utils.h"
+
 class FeatureExtractor{
   public:
     explicit FeatureExtractor();
     ~FeatureExtractor();
 
     bool denoiseCloud(); //TODO, 点云预处理：去噪声，移除离群点
-    bool getRangeImage(const pcl::PointCloud<pcl::PointXYZ>& input_cloud, cv::Mat& output_img);
+    bool getRangeImage(const pcl::PointCloud<PointType>& input_cloud, cv::Mat& output_img);
 
 
   private:

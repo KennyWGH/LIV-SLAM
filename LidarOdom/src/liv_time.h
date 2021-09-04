@@ -1,14 +1,14 @@
 /*
- * 基础设施 —— 时间
+ * 基础设施：时间
  * 定义所有时间、时间维护、转化相关的设施，算法层中统一使用本基础设施；
- * 基础设施完全基于c++ chrono模块开发；
+ * 基础设施完全基于c++ chrono模块；
  * 基础设施以1970年1月1日0点作为时间纪元epoch，同unix系统；
- * ROS时间戳以"int32 header.stamp.nsec, int 32 header.stamp.nsec"计时；
+ * ROS时间戳以"int32 header.stamp.sec, int32 header.stamp.nsec"计时；
  * LIVSLAM与ROS对接，同样以秒和纳秒作为计时单位；
  */
 
-#ifndef TIME_H_
-#define TIME_H_
+#ifndef LIV_TIME_H_
+#define LIV_TIME_H_
 
 #include <chrono>
 #include <ratio>
@@ -39,6 +39,8 @@ using Time = UnixTimeScaleClock::time_point;
 Duration FromSeconds(double seconds);
 Duration FromMilliseconds(int64 milliseconds);
 Duration FromNanoseconds(int64 nanoseconds);
+/* PCL pointcloud header time stamp is in microsenond. */
+Duration FromMicroseconds(int64 microseconds); 
 
 // Creates a time from a Unix Time Scale.
 Time FromUnixTicks(int64 ticks);
@@ -53,12 +55,6 @@ std::ostream& operator<<(std::ostream& os, Time time);
 inline double ToSeconds(Duration duration){
     return std::chrono::duration_cast<std::chrono::duration<double>>(duration)
         .count();}
-// inline double ToSeconds(Time time){
-//     return std::chrono::duration_cast<std::chrono::duration<double>>()
-//         .count();}
-// inline double ToSeconds(std::chrono::steady_clock::duration duration){
-//     return std::chrono::duration_cast<std::chrono::duration<double>>(duration)
-//         .count();}
 
 inline int64 GetSecFromMicro(std::uint64_t micro_sec){
     return int64(micro_sec/1000000.0);}
@@ -70,4 +66,4 @@ inline int64 GetNanoFromMicro(std::uint64_t micro_sec){
 
 }  // namespace common
 
-#endif  // TIME_H_
+#endif  // LIV_TIME_H_

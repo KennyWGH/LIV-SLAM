@@ -19,7 +19,7 @@ FeatureExtractor::~FeatureExtractor() {}
 // 思考一个问题：填入Mat的应该是range值还是depth值呢？特征点需要哪种表达？
 // 如果需要range值，请在可视化的时候转换为深度值
 bool FeatureExtractor::getRangeImage(
-            const pcl::PointCloud<pcl::PointXYZ>& input_cloud, cv::Mat& output_img)
+            const pcl::PointCloud<PointType>& input_cloud, cv::Mat& output_img)
 {
     if (output_img.type()!=CV_32FC1) {
         cout << "ERROR! range image type must be CV_32FC1, please re-check." << endl;
@@ -63,7 +63,7 @@ bool FeatureExtractor::getRangeImage(
         output_img.at<float>(rowIdx,colIdx) = depth>100?100:depth;
         count++;
     }
-    cout << "Projected points/All: " << count << "/" << cloudSize
-            << "  |  Average depth: " << temp_depth_sum/cloudSize << endl;
+    // cout << "FeatureExtractor::getRangeImage() -- Projected points/All: " << count << "/" << cloudSize
+    //         << "  |  Average depth: " << temp_depth_sum/cloudSize << endl;
     return true;
 }

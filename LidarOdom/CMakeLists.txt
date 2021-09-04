@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   pcl_conversions
   cv_bridge
+  tf
 )
 
 find_package(Boost REQUIRED COMPONENTS system filesystem thread iostreams chrono)
@@ -111,6 +112,21 @@ target_link_libraries(${PROJECT_NAME}_node
   ${Boost_LIBRARIES}
   ${PCL_LIBRARIES}
   ${OpenCV_LIBS}
+)
+
+######################################################
+################# below of for test ##################
+######################################################
+
+# Compile test executable for ImuTracker.
+add_executable(ImuTracker_Test
+    src/ImuTracker_test.cpp
+    src/ImuTracker.cpp
+    src/liv_time.cpp
+    src/liv_utils.cpp
+)
+target_link_libraries(ImuTracker_Test
+  ${catkin_LIBRARIES}
 )
 
 

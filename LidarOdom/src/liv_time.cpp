@@ -28,6 +28,11 @@ Duration FromNanoseconds(int64 nanoseconds) {
         std::chrono::nanoseconds(nanoseconds));
 }
 
+Duration FromMicroseconds(const int64 microseconds) {
+    return std::chrono::duration_cast<Duration>(
+        std::chrono::microseconds(microseconds));
+}
+
 Time FromUnixTicks(const int64 ticks) { return Time(Duration(ticks)); }
 
 int64 ToUnixTicks(const Time time) { return time.time_since_epoch().count(); }

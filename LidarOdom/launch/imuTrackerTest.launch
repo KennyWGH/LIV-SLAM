@@ -1,0 +1,13 @@
+<launch>
+    <!-- <param name="/use_sim_time" value="true" /> -->
+    <arg name="bag_filename" default="/home/wgh/aaa_bags/2021-04-27-B1-02-crossElevator.bag" />
+
+
+    <node pkg="lidar_odom" type="ImuTracker_Test" name="ImuTracker_Test" output="screen" />
+
+    <node pkg="rviz" type="rviz" name="rviz_ImuTrackerTest" required="false" args="-d $(find lidar_odom)/rviz/imu_tracker_test.rviz" />
+
+    <!-- <node name="playbag" pkg="rosbag" type="play" args="- -clock $(arg bag_filename)" /> -->
+    <include file = "$(find imu_lpms_ig1)/launch/imu_lpms_ig1.launch" />
+
+</launch>

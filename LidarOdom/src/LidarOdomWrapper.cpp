@@ -13,11 +13,14 @@
 
 
 LidarOdomWrapper::LidarOdomWrapper(ros::NodeHandle& nh, Options& options)
-    :nh_(nh), options_(options), lidar_odom_(options.lidar_odom_options), imu_warn_sampler(0.01)
+    :nh_(nh), options_(options), 
+    lidar_odom_(options.lidar_odom_options), 
+    imu_warn_sampler(0.01)
 {
     // 订阅话题
     subImu = nh_.subscribe(options_.imu_topic, 1000, &LidarOdomWrapper::addImu, this);
-    subPointcloud = nh_.subscribe(options_.pointcloud_topic, 100, &LidarOdomWrapper::addPointcloud, this);
+    subPointcloud = nh_.subscribe(options_.pointcloud_topic, 100, 
+                                    &LidarOdomWrapper::addPointcloud, this);
     pubRangeImg = nh_.advertise<sensor_msgs::Image>("range_img", 1);
     pubTempCloud = nh_.advertise<sensor_msgs::PointCloud2>("temp_cloud", 1);
     // 其它
@@ -64,6 +67,7 @@ void LidarOdomWrapper::addPointcloud(const sensor_msgs::PointCloud2ConstPtr& msg
     pointcloud_queue_.push(msg);
     trimPointcloudQueue();
     checkAndDispatch();
+    // std::cout << std::endl << std::endl;
     return;
 }
 
@@ -76,61 +80,86 @@ void LidarOdomWrapper::checkAndDispatch()
     if(!(imu_queue_.size()>1&&pointcloud_queue_.size()>=1)) return;
     if(!isInitialized){
         /* 情形一：所有imu都在第一帧点云之后：弹出第一个imu之前的所有点云 */
-        if( pointcloud_queue_.front()->header.stamp.toNSec()<imu_queue_.front()->header.stamp.toNSec() )
+        if( pointcloud_queue_.front()->header.stamp.toNSec()
+            <imu_queue_.front()->header.stamp.toNSec() )
         {
             do{
                 pointcloud_queue_.pop();
             }while(!pointcloud_queue_.empty() 
-                && pointcloud_queue_.front()->header.stamp.toNSec()<imu_queue_.front()->header.stamp.toNSec());
+                && pointcloud_queue_.front()->header.stamp.toNSec()
+                    <imu_queue_.front()->header.stamp.toNSec());
             return;
         /* 情形二：所有imu都在第一帧点云之前：则只保留最近的一个imu */
-        }else if(imu_queue_.back()->header.stamp.toNSec()<pointcloud_queue_.front()->header.stamp.toNSec()){
+        }else if(imu_queue_.back()->header.stamp.toNSec()
+            <pointcloud_queue_.front()->header.stamp.toNSec())
+        {
             while(imu_queue_.size()>1)
             {
                 imu_queue_.pop();
             }
             return;
         /* 情形三：第一帧点云前后都有imu，符合条件，队列初始化完成，开始下发 */
-        }else{
+        }else
+        {
             isInitialized=true;
             sensor_msgs::ImuConstPtr front_imu;
             do{
                 front_imu = imu_queue_.front();
                 imu_queue_.pop();
-            }while(imu_queue_.front()->header.stamp.toNSec()<pointcloud_queue_.front()->header.stamp.toNSec());
+            }while(imu_queue_.front()->header.stamp.toNSec()
+                    <pointcloud_queue_.front()->header.stamp.toNSec());
+
             std::size_t num = imu_queue_.size() + pointcloud_queue_.size();
             ROS_INFO_STREAM("Data queue initialized! Remaining queue size: " 
-                << imu_queue_.size() << " + " << pointcloud_queue_.size() << " = " << num);
-            ROS_INFO_STREAM("Dispatch to core the first IMU data.        -- [" 
-                << front_imu->header.stamp.sec << "." << front_imu->header.stamp.nsec << "]");
-            /* `return` can be removed, so we can dispatch one imu and one pc2, instead of just one imu. */
+                << imu_queue_.size() << " + " << pointcloud_queue_.size()-1 << " = " << num-1);
+            ROS_INFO_STREAM("Dispatch to core the initial IMU data.        -- [" 
+                << front_imu->header.stamp.sec << "." 
+                << front_imu->header.stamp.nsec << "]");
+            ImuData imu_data {  common::Time(
+                                    common::FromSeconds(double(front_imu->header.stamp.sec))+
+                                    common::FromNanoseconds(front_imu->header.stamp.nsec) ),
+                                Eigen::Vector3d(front_imu->linear_acceleration.x,
+                                                front_imu->linear_acceleration.y,
+                                                front_imu->linear_acceleration.z),
+                                Eigen::Vector3d(front_imu->angular_velocity.x,
+                                                front_imu->angular_velocity.y,
+                                                front_imu->angular_velocity.z) };
+            lidar_odom_.addImu(imu_data);
+            /* `return` can be removed, so we can dispatch one imu and one pc2 
+            right after initialization, instead of just one imu. */
             // return; 
         }
     }
+
     // 数据队列已初始化成功，正常按时间顺序下发数据
-    if(imu_queue_.front()->header.stamp.toSec()<pointcloud_queue_.front()->header.stamp.toSec())
+    if(imu_queue_.front()->header.stamp.toSec()
+        <pointcloud_queue_.front()->header.stamp.toSec())
     {
         sensor_msgs::ImuConstPtr ros_imu = imu_queue_.front();
         // ROS_INFO_STREAM("Dispatch to core an IMU data. [" << ros_imu->header.stamp.sec
         //     << "." << ros_imu->header.stamp.nsec << "]");
-        ImuData imu_data {common::Time( common::FromSeconds(double(ros_imu->header.stamp.sec))+
-                                        common::FromNanoseconds(ros_imu->header.stamp.nsec) ),
-                        Eigen::Vector3d(ros_imu->linear_acceleration.x,
-                                        ros_imu->linear_acceleration.y,
-                                        ros_imu->linear_acceleration.z),
-                        Eigen::Vector3d(ros_imu->angular_velocity.x,
-                                        ros_imu->angular_velocity.y,
-                                        ros_imu->angular_velocity.z) };
+        ImuData imu_data {  common::Time(
+                                common::FromSeconds(double(ros_imu->header.stamp.sec))+
+                                common::FromNanoseconds(ros_imu->header.stamp.nsec) ),
+                            Eigen::Vector3d(ros_imu->linear_acceleration.x,
+                                            ros_imu->linear_acceleration.y,
+                                            ros_imu->linear_acceleration.z),
+                            Eigen::Vector3d(ros_imu->angular_velocity.x,
+                                            ros_imu->angular_velocity.y,
+                                            ros_imu->angular_velocity.z) };
         lidar_odom_.addImu(imu_data);
         imu_queue_.pop();
         return;
     }
     sensor_msgs::PointCloud2ConstPtr ros_pc2 = pointcloud_queue_.front();
-    ROS_INFO_STREAM("Dispatch to core a Pointcloud data.     [" << ros_pc2->header.stamp.sec
-        << "." << ros_pc2->header.stamp.nsec <<"]");
-    pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
+    // ROS_INFO_STREAM("Dispatch to core a Pointcloud data.     [" 
+    //     << ros_pc2->header.stamp.sec << "." << ros_pc2->header.stamp.nsec <<"]");
+    pcl::PointCloud<PointType> pcl_cloud;
     pcl::fromROSMsg(*ros_pc2, pcl_cloud);
-    lidar_odom_.addPointcloud(pcl_cloud);
+    common::Time cloud_time_stamp = common::Time( 
+                        common::FromSeconds(double(ros_pc2->header.stamp.sec))+
+                        common::FromNanoseconds(ros_pc2->header.stamp.nsec) );
+    lidar_odom_.addPointcloud(cloud_time_stamp, pcl_cloud);
     pointcloud_queue_.pop();
 
     /* 在RVIZ可视化深度图 */
@@ -148,7 +177,7 @@ void LidarOdomWrapper::checkAndDispatch()
             }
         }
         double temp_intensity_avg = temp_intensity_sum/(img_shown.rows*img_shown.cols);
-        ROS_INFO_STREAM("average depth from intensity is: " << temp_intensity_avg);
+        // ROS_INFO_STREAM("average depth from intensity is: " << temp_intensity_avg);
         img_shown.convertTo(img_shown, CV_8UC1); //COLOR_GRAY2BGR 
         cv::applyColorMap(img_shown, img_shown, cv::COLORMAP_RAINBOW);
         cv::flip(img_shown, img_shown, 0);
@@ -157,7 +186,6 @@ void LidarOdomWrapper::checkAndDispatch()
             // cv_bridge::CvImage(std_msgs::Header(), "mono8", img_shown).toImageMsg();
         pubRangeImg.publish(*img_msg);
     }
-
     return;
 }
 

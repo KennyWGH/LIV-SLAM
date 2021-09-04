@@ -17,7 +17,8 @@ FixedRatioSampler::FixedRatioSampler(double ratio)
 {
     // C++断言检查ratio必须>=0且<=1！
     if( !(0.<=ratio_ && ratio_ <=1.) )
-        std::cout << "ERROR! ratio passed to FixedRatioSampler must be within [0,1]!" << std::endl;
+        std::cout << "ERROR! ratio passed to FixedRatioSampler must be within [0,1]!" 
+                << std::endl;
 }
 
 FixedRatioSampler::FixedRatioSampler(){}
