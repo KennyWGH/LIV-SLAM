@@ -44,6 +44,7 @@ class Rigid3d {
   static Rigid3d Identity() { return Rigid3d(); }
 
   // 以上为构造相关
+  // ***********
   // 以下为访问相关
 
   const Vector& translation() const { return translation_; }

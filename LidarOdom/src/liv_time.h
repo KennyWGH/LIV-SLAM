@@ -46,14 +46,18 @@ Duration FromMicroseconds(int64 microseconds);
 Time FromUnixTicks(int64 ticks);
 
 // Outputs the Unix Time Scale timestamp for a given Time.
-int64 ToUnixTicks(Time time);
+int64 ToUnixTicks(const Time& time);
 
 // For logging and unit tests, outputs the timestamp integer as nanosecond.
 std::ostream& operator<<(std::ostream& os, Time time);
 
 // Returns the given duration in seconds.
-inline double ToSeconds(Duration duration){
+inline double ToSeconds(const Duration& duration){
     return std::chrono::duration_cast<std::chrono::duration<double>>(duration)
+        .count();}
+
+inline double ToSeconds(const Time& time){
+    return std::chrono::duration_cast<std::chrono::duration<double>>(time.time_since_epoch())
         .count();}
 
 inline int64 GetSecFromMicro(std::uint64_t micro_sec){

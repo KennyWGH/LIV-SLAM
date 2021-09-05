@@ -3,9 +3,18 @@
  * 
  */
 
+// MUST define this if you are using custom point-type along with PCL algorithms.
+#ifndef PCL_NO_PRECOMPILE
+#define PCL_NO_PRECOMPILE
+#endif
 
 // ROS
 #include<pcl_conversions/pcl_conversions.h>
+// PCL
+#include<pcl/filters/radius_outlier_removal.h>
+#include<pcl/filters/impl/radius_outlier_removal.hpp>
+#include<pcl/filters/voxel_grid.h>
+#include<pcl/filters/impl/voxel_grid.hpp>
 // OpenCV
 #include<opencv/cv.hpp>
 // 自定义工程
@@ -69,6 +78,126 @@ void LidarOdomWrapper::addPointcloud(const sensor_msgs::PointCloud2ConstPtr& msg
     checkAndDispatch();
     // std::cout << std::endl << std::endl;
     return;
+}
+
+
+// 如果既有ring又有time，则返回true，否则返回false。
+bool LidarOdomWrapper::tryConvertROSCloudToRingTimeCloud(
+        sensor_msgs::PointCloud2ConstPtr& ros_cloud, 
+        pcl::PointCloud<PointType>& out_cloud)
+{
+    // check ROS msg fields
+    // for VLP-16 ROS driver, {x/y/z/intensity/ring/time} are included.
+    bool hasRing = false;
+    bool hasTime = false;
+    for (std::size_t i=0; i<ros_cloud->fields.size(); i++) {
+        // std::cout << "ROS cloud msg: #" << i << " " << ros_cloud->fields[i].name << std::endl;
+        if (ros_cloud->fields[i].name=="ring") hasRing=true;
+        if (ros_cloud->fields[i].name=="time") hasTime=true;
+    }
+
+    pcl::PointCloud<PointXYZIRT> temp_cloud;
+    pcl::fromROSMsg(*ros_cloud, temp_cloud);
+
+    // let's do a test to verify whether custom pointcloud structure can work with PCL algorithms.
+    if (0)
+    {
+        pcl::PointCloud<PointXYZIRT>::Ptr temp_cloud_ptr;
+        temp_cloud_ptr.reset(new pcl::PointCloud<PointXYZIRT>);
+        *temp_cloud_ptr = temp_cloud;
+        std::size_t size_before = temp_cloud_ptr->points.size();
+        pcl::VoxelGrid<PointXYZIRT> downSizeFilter;
+        downSizeFilter.setLeafSize(0.1, 0.1, 0.1);
+        downSizeFilter.setInputCloud(temp_cloud_ptr);
+        downSizeFilter.filter(*temp_cloud_ptr);
+        std::cout << "filtered points size is " << temp_cloud_ptr->points.size() 
+                    << " of " << size_before << std::endl;
+    }
+
+    // do a test to verify whether `clear()` will weep out pcl cloud header.
+    if (0) 
+    {
+        pcl::fromROSMsg(*ros_cloud, out_cloud);
+        out_cloud.is_dense = 100;
+        out_cloud.width = 6849;
+        std::cout << "cloud msg: dense " << out_cloud.is_dense
+                << ", width " << out_cloud.width << ", heigth " << out_cloud.height 
+                << ", header " << out_cloud.header 
+                << ", cloud size " << out_cloud.points.size() << std::endl;
+        out_cloud.clear();
+        std::cout << "cloud msg: dense " << out_cloud.is_dense
+                << ", width " << out_cloud.width << ", heigth " << out_cloud.height 
+                << ", header " << out_cloud.header 
+                << ", cloud size " << out_cloud.points.size() << std::endl;
+    }
+
+    out_cloud.clear();
+    out_cloud.header = temp_cloud.header;
+    out_cloud.is_dense = false; // we use this to indicate if Ring&Time is specified.
+
+    if(hasRing && hasTime) {
+        // double avg_time = 0;
+        // double avg_ring = 0;
+        // double totol_num = out_cloud.points.size();
+        // double ring0_num = 0;
+        // double timePositive_num = 0;
+        // int factor = (int)(totol_num/20);
+        // double time_local = 0;
+
+        PointType thisPoint;
+        for (std::size_t i=0; i<temp_cloud.points.size(); i++)
+        {
+            // avg_time += temp_cloud.points[i].time;
+            // avg_ring += temp_cloud.points[i].ring;
+            // float RingTime = 0.;
+            // if (0<=temp_cloud.points[i].ring && temp_cloud.points[i].ring<=16
+            //     && 0.<=temp_cloud.points[i].time && temp_cloud.points[i].time <1.0 )
+            // {
+            //     RingTime = temp_cloud.points[i].ring + temp_cloud.points[i].time;
+            // }
+            // out_cloud.points[i].intensity = RingTime;
+
+            // // if (i<10) std::cout << "time first 10: " << temp_cloud.points[i].time << std::endl;
+            // // if (totol_num-11<i) std::cout << "time last 10: " << temp_cloud.points[i].time << std::endl;
+            // if (temp_cloud.points[i].ring==0 ) ring0_num++;
+            // if (temp_cloud.points[i].time>0 ) timePositive_num++;
+
+            // time_local+=temp_cloud.points[i].time;
+            // if(i>0&&(i%factor)==0){
+            //     std::cout << "local avg time " << time_local/factor << std::endl;
+            //     time_local=0;
+            // }
+
+            if (0<=temp_cloud.points[i].ring && temp_cloud.points[i].ring<=16
+                && -1.<temp_cloud.points[i].time && temp_cloud.points[i].time <0. )
+            {
+                thisPoint.x = temp_cloud.points[i].x;
+                thisPoint.y = temp_cloud.points[i].y;
+                thisPoint.z = temp_cloud.points[i].z;
+                thisPoint.intensity = temp_cloud.points[i].ring + temp_cloud.points[i].time;
+                out_cloud.push_back(thisPoint);
+            }
+
+        }
+        // std::cout << "for this cloud msg, avg ring " << avg_ring/totol_num << ", avg time " << avg_time/totol_num 
+        //     << "  |  ringID(0) " << ring0_num << ", " << ring0_num/totol_num*100 << "%  |  time positive " 
+        //     << timePositive_num << ", " << timePositive_num/totol_num*100 << "%" << std::endl;
+        
+        out_cloud.is_dense = true;
+        return true;
+    }
+
+    if(!hasRing && hasTime) {
+        //
+    }
+    if(hasRing && !hasTime) {
+        //
+    }
+
+    pcl::fromROSMsg(*ros_cloud, out_cloud);
+    out_cloud.is_dense = false;
+    return false;
+    
 }
 
 
@@ -151,14 +280,15 @@ void LidarOdomWrapper::checkAndDispatch()
         imu_queue_.pop();
         return;
     }
-    sensor_msgs::PointCloud2ConstPtr ros_pc2 = pointcloud_queue_.front();
+    sensor_msgs::PointCloud2ConstPtr ros_cloud = pointcloud_queue_.front();
     // ROS_INFO_STREAM("Dispatch to core a Pointcloud data.     [" 
-    //     << ros_pc2->header.stamp.sec << "." << ros_pc2->header.stamp.nsec <<"]");
+    //     << ros_cloud->header.stamp.sec << "." << ros_cloud->header.stamp.nsec <<"]");
     pcl::PointCloud<PointType> pcl_cloud;
-    pcl::fromROSMsg(*ros_pc2, pcl_cloud);
+    // pcl::fromROSMsg(*ros_cloud, pcl_cloud);
+    tryConvertROSCloudToRingTimeCloud(ros_cloud, pcl_cloud);
     common::Time cloud_time_stamp = common::Time( 
-                        common::FromSeconds(double(ros_pc2->header.stamp.sec))+
-                        common::FromNanoseconds(ros_pc2->header.stamp.nsec) );
+                        common::FromSeconds(double(ros_cloud->header.stamp.sec))+
+                        common::FromNanoseconds(ros_cloud->header.stamp.nsec) );
     lidar_odom_.addPointcloud(cloud_time_stamp, pcl_cloud);
     pointcloud_queue_.pop();
 

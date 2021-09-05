@@ -39,8 +39,13 @@ class ImuTracker {
     // Interfaces
     void addImu(ImuData imu_data);
 
-    Eigen::Vector3d getGravity(common::Time t_query);
-    Eigen::Quaterniond getAlignedOrientation(common::Time t_query);
+    Eigen::Vector3d getGravity(const common::Time& t_query);
+    Eigen::Quaterniond getOrientation(const common::Time& t_query);
+
+    // 用于外层旋转去畸变
+    bool setStartTime(const common::Time& t_start);
+    Eigen::Quaterniond getDeltaOrientationSinceStart(const common::Time& t_query);
+
     Eigen::Quaterniond getDeltaOrientationSinceTime(common::Time t_start);
     Eigen::Quaterniond getDeltaOrientation(common::Time t_start, common::Time t_end);
     Eigen::Quaterniond getDeltaOrientationPureRot(common::Time t_start, common::Time t_end);
@@ -50,6 +55,7 @@ class ImuTracker {
     Eigen::Quaterniond orientation() const { return orientation_; }
     Eigen::Vector3d position() const { return position_; }
     Eigen::Quaterniond orientationWithoutG() const { return orient_WithoutG_; }
+    Eigen::Vector3d gravity() const { return gravity_vector_; }
 
 
   private:
@@ -80,6 +86,7 @@ class ImuTracker {
             /* Cartographer默认该参数为10.0 */  // wgh-- 该常数越小，新观测的影响来的就越快。
     const double GRAVITY_CONST;               // wgh-- 重力常量
     double QUEUE_DURATION = 5.0;
+    double IMU_FREQUENCY = 167.0;
     // containers
     std::deque<ImuData> imu_queue_;              // wgh-- queue for unprocessed imu data
     std::deque<TimedGravity> gravity_queue_;
@@ -96,6 +103,10 @@ class ImuTracker {
     size_t num_received_imu = 0;                          // wgh-- imu data帧计数
     common::Time curr_time_;                      // wgh-- 实时传入的数据的时间戳
     common::Time processed_time_;                 // wgh-- 当前最新已处理数据的时间
+
+    common::Time time_query_start;
+    size_t index_query_start = 0;
+    Eigen::Quaterniond orientation_query_start;
 
     // 加速度->速度->位置积分（中值积分法）
     bool extrapolate_position_ = false;

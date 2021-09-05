@@ -47,18 +47,10 @@ class LidarOdomWrapper{
     void addPointcloud(const sensor_msgs::PointCloud2ConstPtr& msg);
 
   private:
-    //
-    // inline Time_N fromRosTime(ros::Time ros_time)
-    // {
-    //     return Time_N(3000);
-    // }
 
-    // inline ros::Time toRosTime(Time_N time){
-    //     //
-    // }
-
-    // void fromRosPointCloud2(sensor_msgs::PointCloud2ConstPtr pointcloud2);
-    // sensor_msgs::PointCloud2ConstPtr toRosPointCloud2();
+    bool tryConvertROSCloudToRingTimeCloud(
+            sensor_msgs::PointCloud2ConstPtr& ros_cloud, 
+            pcl::PointCloud<PointType>& out_cloud);
 
     inline void checkAndDispatch();
     inline void trimImuQueue();

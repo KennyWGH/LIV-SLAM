@@ -10,7 +10,7 @@
 // 自定义
 #include "ImuTracker.h"
 
-
+using namespace std;
 
 
 ImuTracker::ImuTracker(double imu_gravity_time_constant)
@@ -21,7 +21,8 @@ ImuTracker::ImuTracker(double imu_gravity_time_constant)
       orientation_(Eigen::Quaterniond::Identity()),
       gravity_vector_(-Eigen::Vector3d::UnitZ()*9.8),
       last_angular_velocity_(Eigen::Vector3d::Zero()),
-      last_linear_accel_corrected_(Eigen::Vector3d::Zero())
+      last_linear_accel_corrected_(Eigen::Vector3d::Zero()),
+      orientation_query_start(Eigen::Quaterniond::Identity())
 {
     std::cout << "ImuTracker initial position: " << position_.x() 
                 << " " << position_.y() << " " << position_.z() << std::endl;
@@ -36,7 +37,8 @@ ImuTracker::ImuTracker()
       orientation_(Eigen::Quaterniond::Identity()),
       gravity_vector_(-Eigen::Vector3d::UnitZ()*9.8),
       last_angular_velocity_(Eigen::Vector3d::Zero()),
-      last_linear_accel_corrected_(Eigen::Vector3d::Zero())
+      last_linear_accel_corrected_(Eigen::Vector3d::Zero()),
+      orientation_query_start(Eigen::Quaterniond::Identity())
 {
     std::cout << "ImuTracker initial position: " << position_.x() 
                 << " " << position_.y() << " " << position_.z() << std::endl;
@@ -135,7 +137,7 @@ void ImuTracker::correctOrientationWithGravity(const Eigen::Vector3d& linear_acc
 
 
 
-Eigen::Vector3d ImuTracker::getGravity(common::Time t_query)
+Eigen::Vector3d ImuTracker::getGravity(const common::Time& t_query)
 {
     // You cannot query a deque when it's empty!
     if (gravity_queue_.empty()) return gravity_vector_;
@@ -149,15 +151,93 @@ Eigen::Vector3d ImuTracker::getGravity(common::Time t_query)
 
     // search from the queue end to queue start.
     // Usually the query time point is near the end, by doing so we save time.
-    // Since all msgs are dispatched in a strict chronological order, maybe
-    // we dont have to extrapolate.
-    return gravity_vector_;
+    if ( common::ToSeconds(t_query-gravity_queue_.back().time)<1.0/IMU_FREQUENCY )
+    return gravity_queue_.back().gravity;
+
+    for (std::size_t i=gravity_queue_.size()-2; i>0; i--)
+    {
+        if ( common::ToSeconds(t_query-gravity_queue_[i].time)<1.0/IMU_FREQUENCY ) {
+            return gravity_queue_[i].gravity;
+        }
+    }
+
+    return -Eigen::Vector3d::UnitZ();
 }
 
 
-Eigen::Quaterniond ImuTracker::getAlignedOrientation(common::Time t_query)
+Eigen::Quaterniond ImuTracker::getOrientation(const common::Time& t_query)
 {
-    return orientation_; 
+    // You cannot query a deque when it's empty!
+    if (ort_queue_.empty()) return orientation_;
+
+    // check time.
+    if (t_query<ort_queue_.front().time || 
+        t_query>ort_queue_.back().time + common::FromSeconds(1.0) ) {
+        std::cout << "ERROR! Time point exceeds valid scope!" << std::endl;
+        return Eigen::Quaterniond::Identity();
+    }
+
+    if ( common::ToSeconds(t_query-ort_queue_.back().time)<1.0/IMU_FREQUENCY )
+        return ort_queue_.back().orient;
+
+    // search from the queue end to queue start.
+    // Usually the query time point is near the end, by doing so we save time.
+    for (std::size_t i=ort_queue_.size()-2; i>0; i--)
+    {
+        if ( common::ToSeconds(t_query-ort_queue_[i].time)<1.0/IMU_FREQUENCY ) {
+            return ort_queue_[i].orient;
+        }
+    }
+
+    return Eigen::Quaterniond::Identity();
+}
+
+
+bool ImuTracker::setStartTime(const common::Time& t_start) 
+{
+    /* ort_queue_ */
+    // 找到起始位置,插值算出起始姿态角
+    for (size_t i=ort_queue_.size()-2; i>0; i--)
+    {
+        if (ort_queue_[i].time<t_start) {
+            index_query_start = i;
+            double ratio_l = common::ToSeconds(t_start-ort_queue_[i].time) / 
+                             common::ToSeconds(ort_queue_[i+1].time-ort_queue_[i].time);
+            // 四元数球面线性插值(该插值假设刚体在两个姿态之间匀速运动)
+            orientation_query_start = 
+                ort_queue_[i].orient.slerp(ratio_l, ort_queue_[i+1].orient);
+            time_query_start = t_start;
+            return true;
+        }
+    }
+    return false;
+}
+
+
+Eigen::Quaterniond 
+ImuTracker::getDeltaOrientationSinceStart(const common::Time& t_query)
+{
+    // check time.
+    if (t_query<time_query_start) {
+        cout << "ERROR! the point you are querying is before the start time." << endl;
+        return Eigen::Quaterniond::Identity();
+    }
+
+    // do query.
+    for (size_t i=index_query_start; i<ort_queue_.size(); i++)
+    {
+        if (t_query<ort_queue_[i].time) {
+            double ratio_l = common::ToSeconds(t_query-ort_queue_[i-1].time) / 
+                             common::ToSeconds(ort_queue_[i].time-ort_queue_[i-1].time);
+            // 四元数球面线性插值(该插值假设刚体在两个姿态之间匀速运动)
+            Eigen::Quaterniond quat_query = 
+                ort_queue_[i-1].orient.slerp(ratio_l, ort_queue_[i].orient);
+            return (orientation_query_start.conjugate() * quat_query).normalized();
+        }
+    }
+
+    cout << "ERROR! the point you are querying is newer than any data ImuTracker has known." << endl;
+    return Eigen::Quaterniond::Identity();
 }
 
 
@@ -180,7 +260,8 @@ Eigen::Quaterniond ImuTracker::getDeltaOrientationSinceTime(common::Time t_start
 }
 
 
-Eigen::Quaterniond ImuTracker::getDeltaOrientation(common::Time t_start, common::Time t_end)
+Eigen::Quaterniond 
+ImuTracker::getDeltaOrientation(common::Time t_start, common::Time t_end)
 {
     // check time.
     if (!(t_start<=t_end)) {
@@ -193,7 +274,8 @@ Eigen::Quaterniond ImuTracker::getDeltaOrientation(common::Time t_start, common:
     }
     // we allow the t_end to be later than the last orientation in queue.
     if ( t_end>(ort_queue_.back().time+common::FromMilliseconds(10)) ) {
-        std::cout << "WARNING! End time point is too new than ImuTracker." << std::endl;
+        std::cout << "WARNING! End time point is too new than ImuTracker." 
+                    << std::endl;
     }
 
     bool endTimeFound = false, startTimeFound = false;

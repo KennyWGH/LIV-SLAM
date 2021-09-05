@@ -35,7 +35,7 @@ Duration FromMicroseconds(const int64 microseconds) {
 
 Time FromUnixTicks(const int64 ticks) { return Time(Duration(ticks)); }
 
-int64 ToUnixTicks(const Time time) { return time.time_since_epoch().count(); }
+int64 ToUnixTicks(const Time& time) { return time.time_since_epoch().count(); }
 
 std::ostream& operator<<(std::ostream& os, const Time time) {
     os << std::to_string(ToUnixTicks(time));

@@ -54,7 +54,7 @@ void LidarOdom::addPointcloud(const common::Time& time_stamp, const pcl::PointCl
     num_received_cloud++;
     cout << "Received a pointcloud #" << num_received_cloud << ". ["
     << common::GetSecFromMicro(source_cloud.header.stamp) << "."
-    << common::GetNanoFromMicro(source_cloud.header.stamp) << "]" << endl;
+    << common::GetNanoFromMicro(source_cloud.header.stamp) << "]" << endl << endl;
     // We dont actually use time stamp from PCL point cloud header, 
     // since it was converted to microsecond, which may cause accuracy loss. 
 
@@ -96,6 +96,11 @@ void LidarOdom::addPointcloud(const common::Time& time_stamp, const pcl::PointCl
         currPose.gravity = imu_tracker_.getGravity(time_stamp);
 
         // TODO: deskew the 1st point cloud.
+        // for (size_t i=0; i<lastCloudOriginal)
+        for (size_t i=0; i<lastCloudOriginal->size(); i++)
+        {
+            //
+        }
         // TODO: save the 1st point cloud and it's pose in containers.
         // 思考一个问题，容器的元素类型是点云指针，这个指针肯定不能是后边会被reset的指针。
         // 等等，push_back时，指针变量本身被复制了(浅拷贝)，那就不用担心了呀！

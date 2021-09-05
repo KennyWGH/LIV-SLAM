@@ -16,9 +16,26 @@
 // PCL
 #include<pcl/point_cloud.h>
 #include<pcl/point_types.h>
+#include<pcl_conversions/pcl_conversions.h>
 // 自定义
 #include"liv_time.h"
 #include"RigidTransform.h"
+
+
+/* 自定义点类型 */
+struct PointXYZIRT
+{
+    PCL_ADD_POINT4D
+    PCL_ADD_INTENSITY;
+    uint16_t ring;
+    float time;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW //确保new操作符对齐
+} EIGEN_ALIGN16; // 强制SSE对齐
+
+POINT_CLOUD_REGISTER_POINT_STRUCT (PointXYZIRT, // 注册点类型宏
+    (float,x,x) (float,y,y) (float,z,z) (float,intensity,intensity)
+    (uint16_t,ring,ring) (float,time,time)
+)
 
 typedef pcl::PointXYZI PointType;
 /* I(intensity)中，整数部分表示laserID，小数部分表示相对时间。 */

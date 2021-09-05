@@ -33,7 +33,7 @@ class MotionFilter {
     Rigid3d last_pose_;
 
 
-}
+};
 
 
 
